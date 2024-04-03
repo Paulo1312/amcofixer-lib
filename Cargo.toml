@@ -1,5 +1,5 @@
 [package]
-name = "amcofixer-lib"
+name = "amcofixer_lib"
 version = "1.0.2"
 edition = "2021"
 
