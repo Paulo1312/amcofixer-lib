@@ -81,6 +81,7 @@ impl AmneziaJSON {
             .nth(0).unwrap()
             .to_string();
         self.containers[0].cloak.last_config.remote_host = route;
+        self.host_name = format!("!!!FIXED!!! {}", self.host_name)
     }
 
     pub fn replace_dns_server(mut self, dns_address: String) {

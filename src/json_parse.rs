@@ -39,7 +39,6 @@ pub struct ShadowSocksJSON {
 
 fn parser_main(old_config: &str) -> Result<RootJSON> {
     let new_config: RootJSON = serde_json::from_str(old_config)?;
-    println!("containers/cloak/lastconfig{}\ndns1: {}\ndns2: {}", new_config.containers[0].cloak.last_config, new_config.dns1, new_config.dns2);
     Ok(new_config)
 }
 
@@ -62,7 +61,6 @@ pub struct CloakJSON {
 
 pub fn parser_cloak(old_config: &str) -> Result<CloakJSON> {
     let new_config: CloakJSON = serde_json::from_str(&old_config)?;
-    println!("ProxyMethod = {}", new_config.proxy_method);
     Ok(new_config)
 }
 
@@ -113,11 +111,13 @@ impl AmneziaJSON{
             dns2: new_root_config.dns2,
             host_name: new_root_config.host_name
         };
-        
+        println!("Old remote Host: {}", new_amnezia_config.containers[0].cloak.last_config.remote_host);
         Ok(new_amnezia_config)
-    }
+    }   
 
     pub fn to_string1(self) -> Result<String> {
+        println!("New remote Host: {}", self.containers[0].cloak.last_config.remote_host);
+
         let new_cloak_st = CloakRootJSON {
             last_config: serde_json::to_string(&self.containers[0].cloak.last_config)?,
             port: self.containers[0].cloak.port.clone(),
