@@ -1,6 +1,8 @@
 use std::{io, string::FromUtf8Error};
 
-use serde_json::Value;
+use json_parse::AmneziaJSON;
+use serde_json::Error as JsonError;
+pub mod json_parse;
 
 /// Перевод base64 в string
 pub fn decode_url_base64_str(url_string: String) -> Result<String, FromUtf8Error>{
@@ -63,53 +65,74 @@ pub fn cut_config_byte(data1: &[u8], cut_number: usize) -> &[u8]{
 }
 
 /// Поиск и исправление информации
-fn json_fix(data: String) -> String{
-    let a: Value = serde_json::from_str(&data).unwrap();
-    let last_conf = a["containers"][0]["cloak"]["last_config"].to_string().replace("\\\"", "\"");
-    let last_conf1 = &last_conf[1..last_conf.len() -1];
-    let last_config: Value = serde_json::from_str(&last_conf1).unwrap();
-    let remote_host = last_config["RemoteHost"].to_string().replace("\"", ""); //Новые версии ругаются на доменное имя
-
-    let openvpn_prep = &a["containers"][0]["openvpn"]["last_config"].to_string().replace("\\\\n", "\n").replace("\\\"", "\"");
-    let openvpn = openvpn_prep;
-    let route = openvpn.split("route ").last().unwrap().split(" 255.255.255.255").nth(0).unwrap();
-
-    let new_data = data.replace(&remote_host,  route); //  Его нужно заменить на адрес, который можем взять в этом же конфиге в Openvpn > LastConfig
-    new_data
+fn json_fix(data: String) -> serde_json::Result<String>{
+    let mut config_amnezia = json_parse::AmneziaJSON::new_from_str(&data)?;
+    config_amnezia.json_fix();
+    let new_data = config_amnezia.to_string1()?;
+    Ok(new_data)
 }
 
-pub fn fixer(string_to_fix: String) -> String {
+impl AmneziaJSON {
+    fn json_fix(&mut self) {
+        let route =  self.containers[0].openvpn.last_config
+            .split("route ")
+            .last().unwrap()
+            .split(" 255.255.255.255")
+            .nth(0).unwrap()
+            .to_string();
+        self.containers[0].cloak.last_config.remote_host = route;
+    }
+
+    pub fn replace_dns_server(mut self, dns_address: String) {
+        self.dns1 = dns_address
+    }
+
+    pub fn to_string(&self) -> Result<String, io::Error>{
+        let returna_string = serde_json::to_string(&self)?;
+        Ok(returna_string)
+    }
+}
+
+pub fn get_json(data: String) -> Result<AmneziaJSON, JsonError> {
+    Ok(json_parse::AmneziaJSON::new_from_str(&data)?)
+}
+
+pub fn unpack_config(string_to_fix: String) -> String {
     let mut data1 = string_to_fix.clone();
     if data1.contains("vpn://"){ //Убираем vpn:// из начала файла (На самом деле не только из начала)
         if data1.find("vpn://").unwrap() == 0_usize {
             data1 = data1.replace("vpn://", "")
         }
     }
+
     if data1.ends_with("\n") { //И убираем перенос из конца файла. Я не знаю зачем он там нужен, но с ним не переводится из base64
         data1 = data1.replace("\n","");
     }
-    
+
     let data2 = decode_url_base64_byte(data1.to_string()).unwrap();
     let debase64 = cut_config_byte(&data2, 4);
-    let decode64 = decode_zlib(debase64).unwrap();
+    decode_zlib(debase64).unwrap()
+}
 
-    let fixed_data = json_fix(decode64);
-    let mut encoded_data = encode_zlib(fixed_data).unwrap();
-
-    // Вот тут началось шапито. Дело в том, что если ты 
-    // хочешь преобразовать файлик zlib в qcompress, 
-    // то тебе нужно добавить 4 байта которые
-    // показывают длину зашифрованного участкка
-    // Вот тут про это написано https://doc.qt.io/qt-6/qbytearray.html#qUncompress-1
+pub fn pack(config_to_return: String) -> String{
+    let mut encoded_data = encode_zlib(config_to_return).unwrap();
+    /* 
+        Вот тут началось шапито. Дело в том, что если ты хочешь преобразовать 
+        файлик zlib в qcompress, то тебе нужно добавить 4 байта которые
+        показывают длину зашифрованного участкка
+        Вот тут про это написано https://doc.qt.io/qt-6/qbytearray.html#qUncompress-1
+    */
     encoded_data.reverse();
     encoded_data.push(255);
     encoded_data.push(0);
     encoded_data.push(0);
     encoded_data.push(0);
     encoded_data.reverse();
-
-    // Я может выведу распаковку / Запаковку qcompress отдельно, но, пока что, пусть так будет.
-
-
     encode_url_base64_byte(encoded_data)
+}
+
+pub fn fixer(string_to_fix: String) -> String {
+    let decode64 = unpack_config(string_to_fix);
+    let fixed_data = json_fix(decode64).unwrap();
+    pack(fixed_data)
 } 
