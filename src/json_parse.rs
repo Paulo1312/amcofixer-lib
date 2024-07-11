@@ -111,12 +111,10 @@ impl AmneziaJSON{
             dns2: new_root_config.dns2,
             host_name: new_root_config.host_name
         };
-        println!("Old remote Host: {}", new_amnezia_config.containers[0].cloak.last_config.remote_host);
         Ok(new_amnezia_config)
     }   
 
     pub fn to_string1(self) -> Result<String> {
-        println!("New remote Host: {}", self.containers[0].cloak.last_config.remote_host);
 
         let new_cloak_st = CloakRootJSON {
             last_config: serde_json::to_string(&self.containers[0].cloak.last_config)?,

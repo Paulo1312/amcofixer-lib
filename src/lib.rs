@@ -5,7 +5,7 @@ use serde_json::Error as JsonError;
 pub mod json_parse;
 
 /// Перевод base64 в string
-pub fn decode_url_base64_str(url_string: String) -> Result<String, FromUtf8Error>{
+pub fn decode_url_base64_str(url_string: &String) -> Result<String, FromUtf8Error>{
     use base64::{Engine as _, alphabet, engine::{self, general_purpose}};
     let bytes_url = engine::GeneralPurpose::new(
                  &alphabet::URL_SAFE,
@@ -15,7 +15,7 @@ pub fn decode_url_base64_str(url_string: String) -> Result<String, FromUtf8Error
 }
 
 /// Перевод base64 в byte
-pub fn decode_url_base64_byte(url_string: String) -> Result<Vec<u8>, base64::DecodeError> {
+pub fn decode_url_base64_byte(url_string: &String) -> Result<Vec<u8>, base64::DecodeError> {
     use base64::{Engine as _, alphabet, engine::{self, general_purpose}};
     engine::GeneralPurpose::new(
                  &alphabet::URL_SAFE,
@@ -44,7 +44,7 @@ pub fn decode_zlib(data_to_decode: &[u8]) -> io::Result<String>{
 }
 
 /// Запаковка zlib
-pub fn encode_zlib(data: String) -> Result<Vec<u8>, io::Error> {
+pub fn encode_zlib(data: &String) -> Result<Vec<u8>, io::Error> {
     use std::io::prelude::*;
     use flate2::Compression;
     use flate2::write::ZlibEncoder;
@@ -55,7 +55,7 @@ pub fn encode_zlib(data: String) -> Result<Vec<u8>, io::Error> {
 }
 
 /// Обрезка текста конфига
-pub fn cut_config(data1: String, cut_number: usize) -> String{
+pub fn cut_config(data1: &String, cut_number: usize) -> String{
     data1[cut_number..data1.len()].to_string()
 }
 
@@ -65,7 +65,7 @@ pub fn cut_config_byte(data1: &[u8], cut_number: usize) -> &[u8]{
 }
 
 /// Поиск и исправление информации
-fn json_fix(data: String) -> serde_json::Result<String>{
+fn json_fix(data: &String) -> serde_json::Result<String>{
     let mut config_amnezia = json_parse::AmneziaJSON::new_from_str(&data)?;
     config_amnezia.json_fix();
     let new_data = config_amnezia.to_string1()?;
@@ -84,8 +84,8 @@ impl AmneziaJSON {
         self.host_name = format!("!!!FIXED!!! {}", self.host_name)
     }
 
-    pub fn replace_dns_server(mut self, dns_address: String) {
-        self.dns1 = dns_address
+    pub fn replace_dns_server(mut self, dns_address: &String) {
+        self.dns1 = dns_address.to_owned()
     }
 
     pub fn to_string(&self) -> Result<String, io::Error>{
@@ -94,11 +94,11 @@ impl AmneziaJSON {
     }
 }
 
-pub fn get_json(data: String) -> Result<AmneziaJSON, JsonError> {
+pub fn get_json(data: &String) -> Result<AmneziaJSON, JsonError> {
     Ok(json_parse::AmneziaJSON::new_from_str(&data)?)
 }
 
-pub fn unpack_config(string_to_fix: String) -> String {
+pub fn unpack_config(string_to_fix: &String) -> String {
     let mut data1 = string_to_fix.clone();
     if data1.contains("vpn://"){ //Убираем vpn:// из начала файла (На самом деле не только из начала)
         if data1.find("vpn://").unwrap() == 0_usize {
@@ -110,12 +110,12 @@ pub fn unpack_config(string_to_fix: String) -> String {
         data1 = data1.replace("\n","");
     }
 
-    let data2 = decode_url_base64_byte(data1.to_string()).unwrap();
+    let data2 = decode_url_base64_byte(&data1.to_string()).unwrap();
     let debase64 = cut_config_byte(&data2, 4);
     decode_zlib(debase64).unwrap()
 }
 
-pub fn pack(config_to_return: String) -> String{
+pub fn pack(config_to_return: &String) -> String{
     let mut encoded_data = encode_zlib(config_to_return).unwrap();
     /* 
         Вот тут началось шапито. Дело в том, что если ты хочешь преобразовать 
@@ -132,8 +132,8 @@ pub fn pack(config_to_return: String) -> String{
     encode_url_base64_byte(encoded_data)
 }
 
-pub fn fixer(string_to_fix: String) -> String {
-    let decode64 = unpack_config(string_to_fix);
-    let fixed_data = json_fix(decode64).unwrap();
-    pack(fixed_data)
+pub fn fixer(string_to_fix: &String) -> String {
+    let decode64 = unpack_config(&string_to_fix);
+    let fixed_data = json_fix(&decode64).unwrap();
+    pack(&fixed_data)
 } 
